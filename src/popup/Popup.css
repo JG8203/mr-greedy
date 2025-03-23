@@ -161,6 +161,36 @@ label {
   color: #ccc;
 }
 
+.kawaii-select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 2px solid var(--secondary-color);
+  border-radius: var(--border-radius);
+  background-color: white;
+  color: var(--text-color);
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff85a2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1em;
+}
+
+.kawaii-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 133, 162, 0.25);
+}
+
+.kawaii-select:disabled {
+  background-color: #f0f0f0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .kawaii-button {
   background-color: var(--primary-color);
   color: white;

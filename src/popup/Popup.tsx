@@ -7,7 +7,22 @@ interface StorageData {
   apiInjectionEnabled?: boolean;
   apiInjectionKey?: string;
   canvasUrl?: string;
+  selectedModel?: string;
 }
+
+// Define available models
+const AVAILABLE_MODELS = [
+  { id: 'openai/o1-preview', name: 'OpenAI o1-preview' },
+  { id: 'openai/gpt-4o', name: 'OpenAI GPT-4o' },
+  { id: 'openai/o3-mini-high', name: 'OpenAI o3-mini-high' },
+  { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1' },
+  { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat' },
+  { id: 'qwen/qwen-32b', name: 'Qwen 32B' },
+  { id: 'qwen/qwen-max', name: 'Qwen Max' },
+  { id: 'google/gemini-2.0-flash-001', name: 'Google Gemini 2.0 Flash' },
+  { id: 'anthropic/claude-3.7-sonnet', name: 'Anthropic Claude 3.7 Sonnet' },
+  { id: 'anthropic/claude-3.7-sonnet:thinking', name: 'Anthropic Claude 3.7 Sonnet (Thinking)' }
+];
 
 // Define types for content script responses
 interface ContentScriptResponse {
@@ -22,6 +37,7 @@ export const Popup = () => {
   const [injectEnabled, setInjectEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [statusMessage, setStatusMessage] = useState('')
+  const [selectedModel, setSelectedModel] = useState('google/gemini-2.0-flash-001')
 
   // Load settings from storage
   useEffect(() => {
@@ -33,7 +49,7 @@ export const Popup = () => {
         // Get settings from local storage
         const localSettings = await new Promise<StorageData>(resolve => {
           chrome.storage.local.get(
-            ['trackingPreventionEnabled', 'apiInjectionEnabled', 'apiInjectionKey', 'canvasUrl'], 
+            ['trackingPreventionEnabled', 'apiInjectionEnabled', 'apiInjectionKey', 'canvasUrl', 'selectedModel'], 
             (result) => resolve(result as StorageData)
           )
         })
@@ -45,6 +61,7 @@ export const Popup = () => {
         setInjectEnabled(localSettings.apiInjectionEnabled || false)
         setApiKey(localSettings.apiInjectionKey || '')
         setCanvasUrl(localSettings.canvasUrl || '')
+        setSelectedModel(localSettings.selectedModel || 'google/gemini-2.0-flash-001')
         
         setIsLoading(false)
       } catch (error) {
@@ -68,7 +85,8 @@ export const Popup = () => {
           trackingPreventionEnabled: trackingDisabled,
           apiInjectionEnabled: injectEnabled,
           apiInjectionKey: apiKey,
-          canvasUrl: canvasUrl
+          canvasUrl: canvasUrl,
+          selectedModel: selectedModel
         }, () => resolve())
       })
       
@@ -113,7 +131,8 @@ export const Popup = () => {
               trackingDisabled: trackingDisabled,
               injectEnabled: injectEnabled,
               apiKeyExists: !!apiKey,
-              canvasUrl: canvasUrl
+              canvasUrl: canvasUrl,
+              selectedModel: selectedModel
             },
             response => {
               if (chrome.runtime.lastError) {
@@ -145,6 +164,11 @@ export const Popup = () => {
   // Handle API key change
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setApiKey(e.target.value)
+  }
+  
+  // Handle model selection change
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedModel(e.target.value)
   }
   
   // Handle Canvas URL change
@@ -184,7 +208,10 @@ export const Popup = () => {
       const response = await new Promise<ContentScriptResponse>((resolve, reject) => {
         chrome.tabs.sendMessage(
           tabs[0].id!, 
-          { action: 'getOpenAIAnswers' },
+          { 
+            action: 'getOpenAIAnswers',
+            selectedModel: selectedModel
+          },
           response => {
             if (chrome.runtime.lastError) {
               reject(new Error('Content script not ready. Please refresh the page and try again.'))
@@ -265,6 +292,23 @@ export const Popup = () => {
             placeholder="sk-or-..."
             className="kawaii-input"
           />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="modelSelect">AI Model</label>
+          <select
+            id="modelSelect"
+            value={selectedModel}
+            onChange={handleModelChange}
+            className="kawaii-select"
+            disabled={!apiKey}
+          >
+            {AVAILABLE_MODELS.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </select>
         </div>
         
         <div className="form-group">

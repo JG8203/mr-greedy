@@ -2,7 +2,8 @@
 class OpenAIHelper {
   constructor(apiKey, modelId) {
     this.apiKey = apiKey;
-    this.modelId = modelId || 'google/gemini-flash-1.5';  // Default model if none specified
+    this.modelId = modelId || 'google/gemini-2.0-flash-001';  // Default model if none specified
+    console.log(`OpenAIHelper initialized with model: ${this.modelId}`);
     this.loadMarked();
   }
   
@@ -188,7 +189,7 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
     let fullResponse = '';
     
     try {
-      const modelToUse = this.modelId || 'google/gemini-flash-1.5';
+      const modelToUse = this.modelId || 'google/gemini-2.0-flash-001';
       console.log(`Using model: ${modelToUse}`);
       
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
