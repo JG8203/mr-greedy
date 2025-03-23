@@ -1,7 +1,8 @@
 // OpenAI API helper for Inwosent
 class OpenAIHelper {
-  constructor(apiKey) {
+  constructor(apiKey, modelId) {
     this.apiKey = apiKey;
+    this.modelId = modelId || 'google/gemini-flash-1.5';  // Default model if none specified
     this.loadMarked();
   }
   
@@ -187,6 +188,9 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
     let fullResponse = '';
     
     try {
+      const modelToUse = this.modelId || 'google/gemini-flash-1.5';
+      console.log(`Using model: ${modelToUse}`);
+      
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -196,7 +200,7 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
           'X-Title': 'Inwosent Quiz Helper'
         },
         body: JSON.stringify({
-          model: 'google/gemini-flash-1.5',
+          model: modelToUse,
           messages: [
             {
               role: 'system',

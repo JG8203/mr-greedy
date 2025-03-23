@@ -1,11 +1,12 @@
 console.log('Inwosent content script loaded');
 
 // Function to apply tracking prevention
-async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyExists) {
+async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyExists, selectedModel) {
   console.log('Applying tracking prevention with params:', { 
     trackingDisabled, 
     injectEnabled, 
-    apiKeyExists 
+    apiKeyExists,
+    selectedModel
   });
 
   if (trackingDisabled) {
@@ -21,32 +22,33 @@ async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyEx
     document.dispatchEvent(new Event('visibilitychange'));
   }
   
-  updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists);
+  updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists, selectedModel);
   
   // If API injection is enabled and we have an API key, get answers
   if (injectEnabled && apiKeyExists) {
-    await injectOpenAIAnswers();
+    await injectOpenAIAnswers(selectedModel);
   }
 }
 
 // Function to inject OpenAI answers
-async function injectOpenAIAnswers() {
+async function injectOpenAIAnswers(modelOverride) {
   console.log('Injecting OpenAI answers...');
   
   try {
-    // Get API key from storage
+    // Get API key and model from storage
     const result = await new Promise(resolve => {
-      chrome.storage.local.get(['apiInjectionKey'], resolve);
+      chrome.storage.local.get(['apiInjectionKey', 'selectedModel'], resolve);
     });
     
     const apiKey = result.apiInjectionKey;
+    const selectedModel = modelOverride || result.selectedModel;
     if (!apiKey) {
       console.error('No API key found for OpenAI');
       return;
     }
     
     // Create OpenAI helper
-    const openaiHelper = new window.OpenAIHelper(apiKey);
+    const openaiHelper = new window.OpenAIHelper(apiKey, selectedModel);
     
     // Get answers for all questions
     const answers = await openaiHelper.getAnswersForQuestions();
@@ -128,7 +130,7 @@ async function injectOpenAIAnswers() {
 }
 
 // Function to update the status display in the quiz header
-function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists) {
+function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists, selectedModel) {
   // Add feedback to quiz header
   const quizHeader = document.querySelector('header.quiz-header');
   if (quizHeader) {
@@ -161,6 +163,9 @@ function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists) {
     if (injectEnabled) {
       if (apiKeyExists) {
         statusContent += '<li style="margin-bottom: 5px;"><b>OpenRouter AI:</b> <span style="color: #4CAF50;">Enabled</span> 🤖</li>';
+        if (selectedModel) {
+          statusContent += `<li style="margin-bottom: 5px;"><b>Model:</b> <span style="color: #4CAF50;">${selectedModel}</span></li>`;
+        }
       } else {
         statusContent += '<li style="margin-bottom: 5px;"><b>OpenRouter AI:</b> <span style="color: #FF9800;">Enabled but missing API key</span></li>';
       }
@@ -187,7 +192,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     applyTrackingPrevention(
       message.trackingDisabled, 
       message.injectEnabled, 
-      message.apiKeyExists
+      message.apiKeyExists,
+      message.selectedModel
     );
     sendResponse({ success: true });
   } else if (message.action === 'toggleApiInjection') {
@@ -201,18 +207,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       updateStatusDisplay(
         result.trackingPreventionEnabled || false,
         message.enabled,
-        !!message.apiKey
+        !!message.apiKey,
+        message.selectedModel
       );
       
       // If API injection is enabled and we have an API key, get answers
       if (message.enabled && message.apiKey) {
-        injectOpenAIAnswers();
+        injectOpenAIAnswers(message.selectedModel);
       }
     });
     
     sendResponse({ success: true });
   } else if (message.action === 'getOpenAIAnswers') {
-    injectOpenAIAnswers()
+    injectOpenAIAnswers(message.selectedModel)
       .then(() => sendResponse({ success: true }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
@@ -224,7 +231,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Check storage for settings on page load
 chrome.storage.local.get(
-  ['trackingPreventionEnabled', 'canvasUrl', 'apiInjectionEnabled', 'apiInjectionKey'], 
+  ['trackingPreventionEnabled', 'canvasUrl', 'apiInjectionEnabled', 'apiInjectionKey', 'selectedModel'], 
   (result) => {
     console.log('Retrieved settings from storage:', result);
     
@@ -237,11 +244,12 @@ chrome.storage.local.get(
         applyTrackingPrevention(
           result.trackingPreventionEnabled,
           result.apiInjectionEnabled || false,
-          !!(result.apiInjectionKey)
+          !!(result.apiInjectionKey),
+          result.selectedModel
         );
       } else if (result.apiInjectionEnabled && result.apiInjectionKey) {
         // If only API injection is enabled, just inject answers
-        injectOpenAIAnswers();
+        injectOpenAIAnswers(result.selectedModel);
       }
       
       // Store API injection settings
