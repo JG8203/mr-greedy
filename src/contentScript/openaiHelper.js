@@ -75,6 +75,25 @@ class OpenAIHelper {
       const textEl = questionEl.querySelector('.question_text');
       const text = textEl ? textEl.textContent.trim() : '';
       
+      // Try to extract question number from header or ID
+      let questionNumber = '';
+      const questionHeaderEl = questionEl.querySelector('.question_header');
+      if (questionHeaderEl) {
+        const headerText = questionHeaderEl.textContent.trim();
+        const match = headerText.match(/Question\s+(\d+)/i);
+        if (match && match[1]) {
+          questionNumber = match[1];
+        }
+      }
+      
+      // If we couldn't find the number in the header, try to extract it from the ID
+      if (!questionNumber) {
+        const idMatch = id.match(/question_(\d+)/);
+        if (idMatch && idMatch[1]) {
+          questionNumber = idMatch[1];
+        }
+      }
+      
       // Extract answer options
       const options = [];
       const answerLabels = questionEl.querySelectorAll('.answer_label');
@@ -85,7 +104,8 @@ class OpenAIHelper {
       questions.push({
         id,
         text,
-        options
+        options,
+        number: questionNumber || (questions.length + 1).toString()
       });
     });
     
@@ -108,7 +128,8 @@ class OpenAIHelper {
   buildBatchPrompt(questions) {
     const questionsText = questions.map((q, index) => {
       const optionsText = q.options.map(option => `   - ${option}`).join('\n');
-      return `Question ${index + 1}: ${q.text}\nOptions:\n${optionsText}`;
+      const questionNumber = q.number || (index + 1).toString();
+      return `Question ${questionNumber}: ${q.text}\nOptions:\n${optionsText}`;
     }).join('\n\n');
     
     return `Answer all of the following multiple choice questions:
@@ -116,7 +137,8 @@ class OpenAIHelper {
 ${questionsText}
 
 For each question, provide the correct answer with a brief explanation. Use simple plaintext formatting.
-Start each answer with "### Answer to Question X:" where X is the question number.`;
+Start each answer with "### Answer to Question X:" where X is the question number.
+Include the question number in your explanation as well (e.g., "For question 3, the correct answer is...").`;
   }
   
   parseAnswers(response, questionCount) {
@@ -133,7 +155,12 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
       answers.push("Could not parse an answer for this question.");
     }
     
-    return answers.map(answer => answer.trim());
+    // Add the header back to each answer for better context
+    const headers = response.match(answerPattern) || [];
+    return answers.map((answer, index) => {
+      const header = headers[index] || `### Answer to Question ${index + 1}:`;
+      return `${header}\n${answer.trim()}`;
+    });
   }
 
   async callOpenAI(prompt) {

@@ -100,26 +100,45 @@ async function injectOpenAIAnswers(modelOverride) {
       answerContainer.style.backgroundColor = 'transparent';
       answerContainer.style.color = 'transparent';
       answerContainer.style.userSelect = 'all';
-      
-      // Get question text
+    
+      // Get question text and number
       const questionEl = document.getElementById(answerData.questionId);
       const questionTextEl = questionEl ? questionEl.querySelector('.question_text') : null;
       const questionText = questionTextEl ? questionTextEl.textContent.trim() : 'Question';
-      
-      // Add invisible marker for question
+    
+      // Find question number from the DOM
+      let questionNumber = '';
+      const questionHeaderEl = questionEl ? questionEl.querySelector('.question_header') : null;
+      if (questionHeaderEl) {
+        const headerText = questionHeaderEl.textContent.trim();
+        const match = headerText.match(/Question\s+(\d+)/i);
+        if (match && match[1]) {
+          questionNumber = match[1];
+        }
+      }
+    
+      // If we couldn't find the number in the DOM, try to extract it from the ID
+      if (!questionNumber) {
+        const idMatch = answerData.questionId.match(/question_(\d+)/);
+        if (idMatch && idMatch[1]) {
+          questionNumber = idMatch[1];
+        }
+      }
+    
+      // Add invisible marker for question with number
       const questionMarker = document.createElement('div');
-      questionMarker.textContent = '.';
+      questionMarker.textContent = questionNumber ? `Question ${questionNumber}` : '.';
       questionMarker.style.color = 'transparent';
       questionMarker.style.fontSize = '1px';
       questionMarker.style.height = '1px';
       answerContainer.appendChild(questionMarker);
-      
+    
       // Add answer content
       const answerContent = document.createElement('div');
       answerContent.innerHTML = openaiHelper.markdownToHtml(answerData.answer);
       answerContent.style.lineHeight = '1.5';
       answerContainer.appendChild(answerContent);
-      
+    
       answersContainer.appendChild(answerContainer);
     }
     
