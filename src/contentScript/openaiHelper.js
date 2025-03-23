@@ -50,7 +50,7 @@ class OpenAIHelper {
 
       console.log(`Found ${questions.length} questions to process`);
       
-      // Send all questions in a single request
+      // Send all questions in a single batch request
       const allAnswers = await this.getAllAnswersInOneRequest(questions);
       
       // Map answers back to their questions
@@ -114,7 +114,11 @@ class OpenAIHelper {
 
   async getAllAnswersInOneRequest(questions) {
     try {
+      // Build a single prompt with all questions
       const prompt = this.buildBatchPrompt(questions);
+      console.log('Sending batch request with all questions');
+      
+      // Call OpenAI with the batch prompt
       const response = await this.callOpenAI(prompt);
       
       // Parse the response to extract individual answers
@@ -126,22 +130,27 @@ class OpenAIHelper {
   }
 
   buildBatchPrompt(questions) {
+    // Format all questions into a single text block
     const questionsText = questions.map((q, index) => {
       const optionsText = q.options.map(option => `   - ${option}`).join('\n');
       const questionNumber = q.number || (index + 1).toString();
       return `Question ${questionNumber}: ${q.text}\nOptions:\n${optionsText}`;
     }).join('\n\n');
     
+    // Create a comprehensive prompt for all questions
     return `Answer all of the following multiple choice questions:
 
 ${questionsText}
 
 For each question, provide the correct answer with a brief explanation. Use simple plaintext formatting.
 Start each answer with "### Answer to Question X:" where X is the question number.
-Include the question number in your explanation as well (e.g., "For question 3, the correct answer is...").`;
+Include the question number in your explanation as well (e.g., "For question 3, the correct answer is...").
+Make sure to answer all questions in order.`;
   }
   
   parseAnswers(response, questionCount) {
+    console.log('Parsing batch response for', questionCount, 'questions');
+    
     // Split the response by answer headers
     const answerPattern = /### Answer to Question \d+:/g;
     const parts = response.split(answerPattern);
@@ -182,8 +191,9 @@ Include the question number in your explanation as well (e.g., "For question 3, 
     
     try {
       const modelToUse = this.modelId || 'google/gemini-2.0-flash-001';
-      console.log(`Using model: ${modelToUse}`);
+      console.log(`Using model: ${modelToUse} for batch request`);
       
+      // Increase max_tokens for batch requests to ensure all questions get answered
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -197,7 +207,7 @@ Include the question number in your explanation as well (e.g., "For question 3, 
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful assistant that provides accurate answers to multiple choice questions. Be concise but thorough in your explanations. Use simple plaintext formatting rather than complex markdown.'
+              content: 'You are a helpful assistant that provides accurate answers to multiple choice questions. Be concise but thorough in your explanations. Use simple plaintext formatting rather than complex markdown. Make sure to answer all questions in the batch.'
             },
             {
               role: 'user',
@@ -205,7 +215,7 @@ Include the question number in your explanation as well (e.g., "For question 3, 
             }
           ],
           temperature: 0.7,
-          max_tokens: 2000,
+          max_tokens: 4000, // Increased for batch processing
           stream: true
         })
       });
