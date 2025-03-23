@@ -137,54 +137,19 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
   }
 
   async callOpenAI(prompt) {
-    // Create a container for streaming output
-    const streamContainer = document.createElement('div');
-    streamContainer.id = 'inwosent-stream-container';
-    streamContainer.style.backgroundColor = '#fff8fa';
-    streamContainer.style.border = '2px solid #ff85a2';
-    streamContainer.style.borderRadius = '8px';
-    streamContainer.style.padding = '20px';
-    streamContainer.style.margin = '20px 0';
-    streamContainer.style.fontFamily = 'Quicksand, sans-serif';
-    
-    // Add header
-    const header = document.createElement('h2');
-    header.textContent = '✨ Inwosent AI Processing... ✨';
-    header.style.color = '#ff85a2';
-    header.style.marginTop = '0';
-    streamContainer.appendChild(header);
-    
-    // Add loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.textContent = 'Generating answers...';
-    loadingIndicator.style.marginBottom = '10px';
-    streamContainer.appendChild(loadingIndicator);
-    
-    // Add stream output area
-    const streamOutput = document.createElement('div');
-    streamOutput.id = 'inwosent-stream-output';
-    streamOutput.style.whiteSpace = 'pre-wrap';
-    streamOutput.style.fontFamily = 'monospace';
-    streamOutput.style.fontSize = '14px';
-    streamOutput.style.lineHeight = '1.5';
-    streamOutput.style.padding = '10px';
-    streamOutput.style.backgroundColor = '#f8f8f8';
-    streamOutput.style.borderRadius = '4px';
-    streamOutput.style.height = '100px';
-    streamOutput.style.overflow = 'auto';
-    streamContainer.appendChild(streamOutput);
-    
-    // Add to page
-    const questionsContainer = document.getElementById('questions');
-    if (questionsContainer) {
-      // Remove existing stream container if it exists
-      const existingContainer = document.getElementById('inwosent-stream-container');
-      if (existingContainer) {
-        existingContainer.remove();
-      }
-      
-      questionsContainer.parentNode.insertBefore(streamContainer, questionsContainer.nextSibling);
-    }
+    // Create a small indicator for processing
+    const processingIndicator = document.createElement('div');
+    processingIndicator.id = 'inwosent-processing-indicator';
+    processingIndicator.style.position = 'fixed';
+    processingIndicator.style.bottom = '10px';
+    processingIndicator.style.right = '10px';
+    processingIndicator.style.width = '10px';
+    processingIndicator.style.height = '10px';
+    processingIndicator.style.borderRadius = '50%';
+    processingIndicator.style.backgroundColor = '#ff85a2';
+    processingIndicator.style.opacity = '0.5';
+    processingIndicator.style.zIndex = '9999';
+    document.body.appendChild(processingIndicator);
     
     let fullResponse = '';
     
@@ -274,20 +239,23 @@ Start each answer with "### Answer to Question X:" where X is the question numbe
         reader.cancel();
       }
       
-      // Update the header to show completion
-      header.textContent = '✨ Inwosent AI Completed ✨';
-      loadingIndicator.textContent = 'Answers generated successfully!';
-      loadingIndicator.style.color = '#4CAF50';
+      // Remove the processing indicator
+      const processingIndicator = document.getElementById('inwosent-processing-indicator');
+      if (processingIndicator) {
+        processingIndicator.remove();
+      }
       
       return fullResponse;
     } catch (error) {
       console.error('Error in streaming API call:', error);
       
-      // Update the header to show error
-      if (document.getElementById('inwosent-stream-container')) {
-        header.textContent = '❌ Inwosent AI Error ❌';
-        loadingIndicator.textContent = `Error: ${error.message}`;
-        loadingIndicator.style.color = '#F44336';
+      // Show a small error indicator
+      const processingIndicator = document.getElementById('inwosent-processing-indicator');
+      if (processingIndicator) {
+        processingIndicator.style.backgroundColor = '#F44336';
+        setTimeout(() => {
+          processingIndicator.remove();
+        }, 3000);
       }
       
       throw error;

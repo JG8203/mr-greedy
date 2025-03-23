@@ -75,26 +75,18 @@ async function injectOpenAIAnswers(modelOverride) {
     // Create a container for the answers
     const answersContainer = document.createElement('div');
     answersContainer.id = 'inwosent-answers';
-    answersContainer.style.backgroundColor = '#fff8fa';
-    answersContainer.style.border = '2px solid #ff85a2';
-    answersContainer.style.borderRadius = '8px';
-    answersContainer.style.padding = '20px';
-    answersContainer.style.margin = '20px 0';
-    answersContainer.style.fontFamily = 'Quicksand, sans-serif';
-    
-    // Add header
-    const header = document.createElement('h2');
-    header.textContent = '✨ Inwosent AI Answers ✨ (Select text to reveal)';
-    header.style.color = '#ff85a2';
-    header.style.marginTop = '0';
-    answersContainer.appendChild(header);
+    answersContainer.style.backgroundColor = 'transparent';
+    answersContainer.style.border = 'none';
+    answersContainer.style.padding = '10px';
+    answersContainer.style.margin = '10px 0';
+    answersContainer.style.fontFamily = 'inherit';
     
     // Add CSS for selection styling
     const style = document.createElement('style');
     style.textContent = `
       .inwosent-answer::selection {
         color: #333;
-        background-color: #ffc2d1;
+        background-color: rgba(0, 0, 0, 0.1);
       }
     `;
     document.head.appendChild(style);
@@ -103,11 +95,9 @@ async function injectOpenAIAnswers(modelOverride) {
     for (const answerData of answers) {
       const answerContainer = document.createElement('div');
       answerContainer.className = 'inwosent-answer';
-      answerContainer.style.marginBottom = '20px';
-      answerContainer.style.padding = '15px';
-      answerContainer.style.backgroundColor = 'white';
-      answerContainer.style.borderRadius = '8px';
-      answerContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      answerContainer.style.marginBottom = '10px';
+      answerContainer.style.padding = '5px';
+      answerContainer.style.backgroundColor = 'transparent';
       answerContainer.style.color = 'transparent';
       answerContainer.style.userSelect = 'all';
       
@@ -116,12 +106,13 @@ async function injectOpenAIAnswers(modelOverride) {
       const questionTextEl = questionEl ? questionEl.querySelector('.question_text') : null;
       const questionText = questionTextEl ? questionTextEl.textContent.trim() : 'Question';
       
-      // Add question text
-      const questionHeader = document.createElement('h3');
-      questionHeader.textContent = questionText;
-      questionHeader.style.color = '#333';
-      questionHeader.style.marginTop = '0';
-      answerContainer.appendChild(questionHeader);
+      // Add invisible marker for question
+      const questionMarker = document.createElement('div');
+      questionMarker.textContent = '.';
+      questionMarker.style.color = 'transparent';
+      questionMarker.style.fontSize = '1px';
+      questionMarker.style.height = '1px';
+      answerContainer.appendChild(questionMarker);
       
       // Add answer content
       const answerContent = document.createElement('div');
@@ -162,30 +153,16 @@ function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists, sele
     statusDiv.style.margin = '10px 0';
     statusDiv.style.fontFamily = 'Quicksand, sans-serif';
     
-    // Add status content
-    let statusContent = '<h3 style="color: #ff85a2; margin: 0 0 8px 0;">✨ Inwosent Status ✨</h3>';
-    statusContent += '<ul style="margin: 0; padding-left: 20px;">';
-    
+    // Add minimal status indicator
+    let statusContent = '';
+  
     if (trackingDisabled) {
-      statusContent += '<li style="margin-bottom: 5px;"><b>Tracking Prevention:</b> <span style="color: #4CAF50;">Enabled</span> 🛡️</li>';
-    } else {
-      statusContent += '<li style="margin-bottom: 5px;"><b>Tracking Prevention:</b> <span style="color: #F44336;">Disabled</span></li>';
+      statusContent += '<span style="color: transparent; font-size: 1px;">T</span>';
     }
-    
-    if (injectEnabled) {
-      if (apiKeyExists) {
-        statusContent += '<li style="margin-bottom: 5px;"><b>OpenRouter AI:</b> <span style="color: #4CAF50;">Enabled</span> 🤖</li>';
-        if (selectedModel) {
-          statusContent += `<li style="margin-bottom: 5px;"><b>Model:</b> <span style="color: #4CAF50;">${selectedModel}</span></li>`;
-        }
-      } else {
-        statusContent += '<li style="margin-bottom: 5px;"><b>OpenRouter AI:</b> <span style="color: #FF9800;">Enabled but missing API key</span></li>';
-      }
-    } else {
-      statusContent += '<li style="margin-bottom: 5px;"><b>OpenRouter AI:</b> <span style="color: #F44336;">Disabled</span></li>';
+  
+    if (injectEnabled && apiKeyExists) {
+      statusContent += '<span style="color: transparent; font-size: 1px;">A</span>';
     }
-    
-    statusContent += '</ul>';
     statusDiv.innerHTML = statusContent;
     
     // Insert at the beginning of quiz header
