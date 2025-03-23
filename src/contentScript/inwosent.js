@@ -84,10 +84,20 @@ async function injectOpenAIAnswers(modelOverride) {
     
     // Add header
     const header = document.createElement('h2');
-    header.textContent = '✨ Inwosent AI Answers ✨';
+    header.textContent = '✨ Inwosent AI Answers ✨ (Select text to reveal)';
     header.style.color = '#ff85a2';
     header.style.marginTop = '0';
     answersContainer.appendChild(header);
+    
+    // Add CSS for selection styling
+    const style = document.createElement('style');
+    style.textContent = `
+      .inwosent-answer::selection {
+        color: #333;
+        background-color: #ffc2d1;
+      }
+    `;
+    document.head.appendChild(style);
     
     // Add each answer
     for (const answerData of answers) {
@@ -98,6 +108,8 @@ async function injectOpenAIAnswers(modelOverride) {
       answerContainer.style.backgroundColor = 'white';
       answerContainer.style.borderRadius = '8px';
       answerContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      answerContainer.style.color = 'transparent';
+      answerContainer.style.userSelect = 'all';
       
       // Get question text
       const questionEl = document.getElementById(answerData.questionId);
