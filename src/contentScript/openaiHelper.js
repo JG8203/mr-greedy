@@ -164,8 +164,11 @@ class OpenAIHelper {
       return questionText;
     }).join('\n\n');
     
+    // Check if we're using a Google model (which supports structured output)
+    const isGoogleModel = this.modelId && this.modelId.startsWith('google/');
+    
     // Create a comprehensive prompt for all questions
-    return `Answer all of the following questions:
+    let promptText = `Answer all of the following questions:
 
 ${questionsText}
 
@@ -175,62 +178,124 @@ For each question:
 3. For text/fill-in-the-blank questions, provide the text answer
 4. For unsupported question types, provide only an explanation
 
-Your response must be a valid JSON object with an "answers" array containing objects for each question.
+`;
+
+    // Add structured output instructions only for Google models
+    if (isGoogleModel) {
+      promptText += `Your response must be a valid JSON object with an "answers" array containing objects for each question.
 Each answer object must include:
 - questionNumber: the question number
 - questionId: the question ID from the HTML
 - answer: the answer (letter for multiple choice, value for numerical/text, empty for unsupported types)
 - explanation: detailed explanation of the answer
 - questionType: the type of question ("multiple_choice", "numerical", "text", or "unsupported")
+`;
+    } else {
+      promptText += `For each answer, start with "### Answer to Question X:" where X is the question number.
+Include the question ID in your response.
+For multiple choice questions, clearly state which option letter is correct.
+`;
+    }
 
-Make sure to answer all questions in order.`;
+    promptText += `Make sure to answer all questions in order.`;
+    
+    return promptText;
   }
   
   parseAnswers(response, questionCount) {
     console.log('Parsing batch response for', questionCount, 'questions');
     
     try {
-      // Parse the JSON response
-      const jsonResponse = JSON.parse(response);
+      // Check if the response is JSON
+      const isJsonResponse = response.trim().startsWith('{') && response.trim().endsWith('}');
       
-      if (!jsonResponse || !jsonResponse.answers || !Array.isArray(jsonResponse.answers)) {
-        throw new Error('Invalid JSON response format');
-      }
-      
-      // Extract answers from the structured response
-      const structuredAnswers = jsonResponse.answers;
-      
-      // Store raw JSON for auto-answering
-      window.lastStructuredAnswers = structuredAnswers;
-      
-      // Map to the format expected by the UI
-      return structuredAnswers.map(answer => {
-        const header = `### Answer to Question ${answer.questionNumber}:`;
-        let content = answer.explanation;
+      if (isJsonResponse) {
+        // Parse the JSON response
+        const jsonResponse = JSON.parse(response);
         
-        // Add answer information based on question type
-        if (answer.questionType === 'multiple_choice' && answer.answer) {
-          content = `The correct answer is ${answer.answer}.\n\n${content}`;
-        } else if ((answer.questionType === 'numerical' || answer.questionType === 'text') && answer.answer) {
-          content = `Answer: ${answer.answer}\n\n${content}`;
-        }
-        
-        // Add structured data as JSON for auto-answering
-        content += `\n\n\`\`\`json
+        if (jsonResponse && jsonResponse.answers && Array.isArray(jsonResponse.answers)) {
+          // Extract answers from the structured response
+          const structuredAnswers = jsonResponse.answers;
+          
+          // Store raw JSON for auto-answering
+          window.lastStructuredAnswers = structuredAnswers;
+          
+          // Map to the format expected by the UI
+          return structuredAnswers.map(answer => {
+            const header = `### Answer to Question ${answer.questionNumber}:`;
+            let content = answer.explanation;
+            
+            // Add answer information based on question type
+            if (answer.questionType === 'multiple_choice' && answer.answer) {
+              content = `The correct answer is ${answer.answer}.\n\n${content}`;
+            } else if ((answer.questionType === 'numerical' || answer.questionType === 'text') && answer.answer) {
+              content = `Answer: ${answer.answer}\n\n${content}`;
+            }
+            
+            // Add structured data as JSON for auto-answering
+            content += `\n\n\`\`\`json
 {
   "questionId": "${answer.questionId}",
   "questionType": "${answer.questionType}",
   "answer": "${answer.answer}"
 }
 \`\`\``;
+            
+            return `${header}\n${content.trim()}`;
+          });
+        }
+      }
+      
+      // If we get here, either it's not JSON or the JSON doesn't have the expected structure
+      // Use the traditional parsing method
+      console.log('Using traditional parsing method for response');
+      
+      // Extract answers using regex patterns
+      const answerPattern = /### Answer to Question \d+:/g;
+      const parts = response.split(answerPattern);
+      
+      // First part is usually empty or contains intro text
+      parts.shift();
+      
+      // If we don't have enough answers, pad with error messages
+      const answers = parts.slice(0, questionCount);
+      while (answers.length < questionCount) {
+        answers.push("Could not parse an answer for this question.");
+      }
+      
+      // Add the header back to each answer for better context
+      const headers = response.match(answerPattern) || [];
+      
+      // Process each answer to extract structured data if possible
+      return answers.map((answer, index) => {
+        const header = headers[index] || `### Answer to Question ${index + 1}:`;
+        let processedAnswer = answer.trim();
         
-        return `${header}\n${content.trim()}`;
+        // Try to extract question ID and answer from the text
+        const questionIdMatch = processedAnswer.match(/Question ID: ([a-zA-Z0-9_]+)/);
+        const answerMatch = processedAnswer.match(/The correct answer is ([A-Z])/);
+        
+        if (questionIdMatch || answerMatch) {
+          const questionId = questionIdMatch ? questionIdMatch[1] : `question_${index + 1}`;
+          const answerLetter = answerMatch ? answerMatch[1] : '';
+          
+          // Add structured data as JSON for auto-answering
+          processedAnswer += `\n\n\`\`\`json
+{
+  "questionId": "question_${questionId}",
+  "questionType": "${answerLetter ? 'multiple_choice' : 'unsupported'}",
+  "answer": "${answerLetter}"
+}
+\`\`\``;
+        }
+        
+        return `${header}\n${processedAnswer}`;
       });
     } catch (error) {
-      console.error('Error parsing JSON response:', error);
+      console.error('Error parsing response:', error);
       console.log('Raw response:', response);
       
-      // Fallback to the old parsing method if JSON parsing fails
+      // Fallback to the simplest parsing method
       const answerPattern = /### Answer to Question \d+:/g;
       const parts = response.split(answerPattern);
       
@@ -330,6 +395,41 @@ Make sure to answer all questions in order.`;
         required: ["answers"]
       };
       
+      // Prepare request body
+      const requestBody = {
+        model: modelToUse,
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful assistant that provides accurate answers to quiz questions. 
+            For multiple choice questions, identify the correct option letter (A, B, C, D, etc.).
+            For numerical questions, provide the numerical answer.
+            For text/fill-in-the-blank questions, provide the text answer.
+            For unsupported question types, leave the answer field empty but still provide an explanation.
+            Be thorough in your explanations. Make sure to answer all questions in the batch.`
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000, // Increased for batch processing
+        stream: true
+      };
+      
+      // Only add structured output for Google models
+      if (modelToUse.startsWith('google/')) {
+        requestBody.response_format = {
+          type: "json_schema",
+          json_schema: {
+            name: "quiz_answers",
+            strict: true,
+            schema: jsonSchema
+          }
+        };
+      }
+      
       // Increase max_tokens for batch requests to ensure all questions get answered
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -339,35 +439,7 @@ Make sure to answer all questions in order.`;
           'HTTP-Referer': window.location.origin,
           'X-Title': 'Inwosent Quiz Helper'
         },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [
-            {
-              role: 'system',
-              content: `You are a helpful assistant that provides accurate answers to quiz questions. 
-              For multiple choice questions, identify the correct option letter (A, B, C, D, etc.).
-              For numerical questions, provide the numerical answer.
-              For text/fill-in-the-blank questions, provide the text answer.
-              For unsupported question types, leave the answer field empty but still provide an explanation.
-              Be thorough in your explanations. Make sure to answer all questions in the batch.`
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 4000, // Increased for batch processing
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "quiz_answers",
-              strict: true,
-              schema: jsonSchema
-            }
-          },
-          stream: true
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {

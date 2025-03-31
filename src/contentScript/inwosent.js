@@ -70,22 +70,44 @@ function autoAnswerQuiz() {
       
       // Parse the JSON content from the answer
       let parsedAnswer;
+      let questionType = 'unknown';
       try {
         // Extract JSON from the answer text if it exists
         const jsonMatch = answerData.answer.match(/```json\s*([\s\S]*?)\s*```/);
         if (jsonMatch && jsonMatch[1]) {
           parsedAnswer = JSON.parse(jsonMatch[1]);
+          questionType = parsedAnswer.questionType || 'unknown';
         } else {
           // Try to parse the entire answer as JSON
           parsedAnswer = JSON.parse(answerData.answer);
+          questionType = parsedAnswer.questionType || 'unknown';
         }
       } catch (e) {
         // If JSON parsing fails, use the raw answer
         parsedAnswer = null;
       }
       
-      // Get the answer from either parsed JSON or raw text
-      const answer = parsedAnswer ? parsedAnswer.answer : answerData.answer;
+      // If no JSON was found, try to extract answer from text patterns
+      let answer;
+      if (parsedAnswer && parsedAnswer.answer) {
+        answer = parsedAnswer.answer;
+      } else {
+        // Try to extract answer from text patterns
+        const multipleChoiceMatch = answerData.answer.match(/correct answer is ([A-Z])/i);
+        const numericalMatch = answerData.answer.match(/Answer: ([\d\.\-]+)/i);
+        
+        if (multipleChoiceMatch) {
+          answer = multipleChoiceMatch[1];
+          questionType = 'multiple_choice';
+        } else if (numericalMatch) {
+          answer = numericalMatch[1];
+          questionType = 'numerical';
+        } else {
+          // Default to using the first line as the answer if nothing else works
+          const firstLine = answerData.answer.split('\n')[0];
+          answer = firstLine.replace(/^[^a-zA-Z0-9]*/, '');
+        }
+      }
       
       // Determine question type
       if (questionEl.classList.contains('multiple_choice_question')) {
