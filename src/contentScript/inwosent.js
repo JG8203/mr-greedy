@@ -31,7 +31,7 @@ async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyEx
 }
 
 // Global variable to track visibility state
-let answersVisible = true;
+let answersVisible = false;
 
 // Function to toggle answer visibility
 function toggleAnswersVisibility() {
@@ -102,7 +102,7 @@ async function injectOpenAIAnswers(modelOverride) {
     answersContainer.style.fontFamily = 'inherit';
     
     // Reset visibility state when injecting new answers
-    answersVisible = true;
+    answersVisible = false;
     
     // Add CSS for styling
     const style = document.createElement('style');
@@ -160,8 +160,8 @@ async function injectOpenAIAnswers(modelOverride) {
       const answerContent = document.createElement('div');
       answerContent.innerHTML = openaiHelper.markdownToHtml(answerData.answer);
       answerContent.style.lineHeight = '1.5';
-      // Start visible by default (hidden=false)
-      answerContent.hidden = false;
+      // Start hidden by default
+      answerContent.hidden = true;
       answerContainer.appendChild(answerContent);
     
       answersContainer.appendChild(answerContainer);
