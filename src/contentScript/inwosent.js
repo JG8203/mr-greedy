@@ -45,7 +45,7 @@ function toggleAnswersVisibility() {
   answers.forEach(answer => {
     const answerContent = answer.querySelector('div:not([style*="font-size: 1px"])');
     if (answerContent) {
-      answerContent.style.color = answersVisible ? 'inherit' : 'transparent';
+      answerContent.hidden = !answersVisible;
     }
   });
   
@@ -152,9 +152,6 @@ async function injectOpenAIAnswers(modelOverride) {
     // Add CSS for styling
     const style = document.createElement('style');
     style.textContent = `
-      .inwosent-answer {
-        color: inherit !important;
-      }
       .inwosent-answer::selection {
         color: #333;
         background-color: rgba(0, 0, 0, 0.1);
@@ -208,7 +205,8 @@ async function injectOpenAIAnswers(modelOverride) {
       const answerContent = document.createElement('div');
       answerContent.innerHTML = openaiHelper.markdownToHtml(answerData.answer);
       answerContent.style.lineHeight = '1.5';
-      answerContent.style.color = 'inherit'; // Start visible by default
+      // Start visible by default (hidden=false)
+      answerContent.hidden = false;
       answerContainer.appendChild(answerContent);
     
       answersContainer.appendChild(answerContainer);
