@@ -108,47 +108,92 @@ class OpenAIHelper {
       let questionText = `Question ${questionNumber}: ${q.text}`;
       
       // Include options for multiple choice questions
-      if (q.options && q.options.length > 0) {
+      if (q.questionType === 'multiple_choice' && q.options && q.options.length > 0) {
         const optionsText = q.options.map((option, i) => `   - Option ${String.fromCharCode(65 + i)}: ${option}`).join('\n');
         questionText += `\nOptions:\n${optionsText}`;
       }
+      
+      // Add question type information
+      questionText += `\nQuestion Type: ${q.questionType}`;
+      questionText += `\nQuestion ID: ${q.id}`;
       
       return questionText;
     }).join('\n\n');
     
     // Create a comprehensive prompt for all questions
-    return `Answer all of the following multiple choice questions:
+    return `Answer all of the following questions:
 
 ${questionsText}
 
-For each question, provide the correct answer with a brief explanation. Use simple plaintext formatting.
-Start each answer with "### Answer to Question X:" where X is the question number.
-Include the question number in your explanation as well (e.g., "For question 3, the correct answer is...").
+For each question:
+1. For multiple choice questions, identify the letter of the correct option (A, B, C, etc.)
+2. For numerical questions, provide the numerical answer
+3. For text/fill-in-the-blank questions, provide the text answer
+4. For unsupported question types, provide only an explanation
+
+Your response must be a valid JSON object with an "answers" array containing objects for each question.
+Each answer object must include:
+- questionNumber: the question number
+- questionId: the question ID from the HTML
+- answer: the answer (letter for multiple choice, value for numerical/text, empty for unsupported types)
+- explanation: detailed explanation of the answer
+- questionType: the type of question ("multiple_choice", "numerical", "text", or "unsupported")
+
 Make sure to answer all questions in order.`;
   }
   
   parseAnswers(response, questionCount) {
     console.log('Parsing batch response for', questionCount, 'questions');
     
-    // Split the response by answer headers
-    const answerPattern = /### Answer to Question \d+:/g;
-    const parts = response.split(answerPattern);
-    
-    // First part is usually empty or contains intro text
-    parts.shift();
-    
-    // If we don't have enough answers, pad with error messages
-    const answers = parts.slice(0, questionCount);
-    while (answers.length < questionCount) {
-      answers.push("Could not parse an answer for this question.");
+    try {
+      // Parse the JSON response
+      const jsonResponse = JSON.parse(response);
+      
+      if (!jsonResponse || !jsonResponse.answers || !Array.isArray(jsonResponse.answers)) {
+        throw new Error('Invalid JSON response format');
+      }
+      
+      // Extract answers from the structured response
+      const structuredAnswers = jsonResponse.answers;
+      
+      // Map to the format expected by the UI
+      return structuredAnswers.map(answer => {
+        const header = `### Answer to Question ${answer.questionNumber}:`;
+        let content = answer.explanation;
+        
+        // Add answer information based on question type
+        if (answer.questionType === 'multiple_choice' && answer.answer) {
+          content = `The correct answer is ${answer.answer}.\n\n${content}`;
+        } else if ((answer.questionType === 'numerical' || answer.questionType === 'text') && answer.answer) {
+          content = `Answer: ${answer.answer}\n\n${content}`;
+        }
+        
+        return `${header}\n${content.trim()}`;
+      });
+    } catch (error) {
+      console.error('Error parsing JSON response:', error);
+      console.log('Raw response:', response);
+      
+      // Fallback to the old parsing method if JSON parsing fails
+      const answerPattern = /### Answer to Question \d+:/g;
+      const parts = response.split(answerPattern);
+      
+      // First part is usually empty or contains intro text
+      parts.shift();
+      
+      // If we don't have enough answers, pad with error messages
+      const answers = parts.slice(0, questionCount);
+      while (answers.length < questionCount) {
+        answers.push("Could not parse an answer for this question.");
+      }
+      
+      // Add the header back to each answer for better context
+      const headers = response.match(answerPattern) || [];
+      return answers.map((answer, index) => {
+        const header = headers[index] || `### Answer to Question ${index + 1}:`;
+        return `${header}\n${answer.trim()}`;
+      });
     }
-    
-    // Add the header back to each answer for better context
-    const headers = response.match(answerPattern) || [];
-    return answers.map((answer, index) => {
-      const header = headers[index] || `### Answer to Question ${index + 1}:`;
-      return `${header}\n${answer.trim()}`;
-    });
   }
 
   async callOpenAI(prompt) {
@@ -172,6 +217,63 @@ Make sure to answer all questions in order.`;
       const modelToUse = this.modelId || 'google/gemini-2.0-flash-001';
       console.log(`Using model: ${modelToUse} for batch request`);
       
+      // Extract question types for the schema
+      const questions = this.extractQuestions();
+      const questionTypes = {};
+      questions.forEach(q => {
+        const questionId = q.id.replace('question_', '');
+        // Determine question type based on class or options
+        if (q.isMultipleChoice) {
+          questionTypes[questionId] = 'multiple_choice';
+        } else {
+          // Check for numerical or fill-in-the-blank
+          const questionEl = document.getElementById(q.id);
+          if (questionEl && questionEl.classList.contains('numerical_question')) {
+            questionTypes[questionId] = 'numerical';
+          } else {
+            questionTypes[questionId] = 'text';
+          }
+        }
+      });
+      
+      // Create JSON schema for structured output
+      const jsonSchema = {
+        type: "object",
+        properties: {
+          answers: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                questionNumber: {
+                  type: "string",
+                  description: "The question number"
+                },
+                questionId: {
+                  type: "string",
+                  description: "The question ID from the HTML"
+                },
+                answer: {
+                  type: "string",
+                  description: "The answer to the question (letter for multiple choice, value for numerical/text)"
+                },
+                explanation: {
+                  type: "string",
+                  description: "Detailed explanation of the answer"
+                },
+                questionType: {
+                  type: "string",
+                  enum: ["multiple_choice", "numerical", "text", "unsupported"],
+                  description: "The type of question"
+                }
+              },
+              required: ["questionNumber", "questionId", "explanation", "questionType"]
+            }
+          }
+        },
+        required: ["answers"]
+      };
+      
       // Increase max_tokens for batch requests to ensure all questions get answered
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -186,7 +288,12 @@ Make sure to answer all questions in order.`;
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful assistant that provides accurate answers to multiple choice questions. Be concise but thorough in your explanations. Use simple plaintext formatting rather than complex markdown. Make sure to answer all questions in the batch.'
+              content: `You are a helpful assistant that provides accurate answers to quiz questions. 
+              For multiple choice questions, identify the correct option letter (A, B, C, D, etc.).
+              For numerical questions, provide the numerical answer.
+              For text/fill-in-the-blank questions, provide the text answer.
+              For unsupported question types, leave the answer field empty but still provide an explanation.
+              Be thorough in your explanations. Make sure to answer all questions in the batch.`
             },
             {
               role: 'user',
@@ -195,6 +302,14 @@ Make sure to answer all questions in order.`;
           ],
           temperature: 0.7,
           max_tokens: 4000, // Increased for batch processing
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "quiz_answers",
+              strict: true,
+              schema: jsonSchema
+            }
+          },
           stream: true
         })
       });
