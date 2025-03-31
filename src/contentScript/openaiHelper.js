@@ -132,9 +132,16 @@ class OpenAIHelper {
   buildBatchPrompt(questions) {
     // Format all questions into a single text block
     const questionsText = questions.map((q, index) => {
-      // Don't include options in the prompt
       const questionNumber = q.number || (index + 1).toString();
-      return `Question ${questionNumber}: ${q.text}`;
+      let questionText = `Question ${questionNumber}: ${q.text}`;
+      
+      // Include options for multiple choice questions
+      if (q.options && q.options.length > 0) {
+        const optionsText = q.options.map((option, i) => `   - Option ${String.fromCharCode(65 + i)}: ${option}`).join('\n');
+        questionText += `\nOptions:\n${optionsText}`;
+      }
+      
+      return questionText;
     }).join('\n\n');
     
     // Create a comprehensive prompt for all questions
