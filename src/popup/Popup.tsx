@@ -352,6 +352,10 @@ export const Popup = () => {
         <span className="emoji">🦄</span>
         <span className="emoji">🍡</span>
       </div>
+      
+      <div className="keyboard-shortcut-info">
+        Press <kbd>C</kbd> to toggle answer visibility
+      </div>
     </main>
   )
 }

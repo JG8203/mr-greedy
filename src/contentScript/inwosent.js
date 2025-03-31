@@ -30,6 +30,71 @@ async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyEx
   }
 }
 
+// Global variable to track visibility state
+let answersVisible = true;
+
+// Function to toggle answer visibility
+function toggleAnswersVisibility() {
+  const answersContainer = document.getElementById('inwosent-answers');
+  if (!answersContainer) return;
+  
+  answersVisible = !answersVisible;
+  
+  // Toggle visibility of all answer elements
+  const answers = answersContainer.querySelectorAll('.inwosent-answer');
+  answers.forEach(answer => {
+    const answerContent = answer.querySelector('div:not([style*="font-size: 1px"])');
+    if (answerContent) {
+      answerContent.style.color = answersVisible ? 'inherit' : 'transparent';
+    }
+  });
+  
+  // Show a brief notification
+  showNotification(answersVisible ? 'Answers visible' : 'Answers hidden');
+}
+
+// Function to show a brief notification
+function showNotification(message) {
+  // Remove existing notification if present
+  const existingNotification = document.getElementById('inwosent-notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.id = 'inwosent-notification';
+  notification.textContent = message;
+  notification.style.position = 'fixed';
+  notification.style.bottom = '20px';
+  notification.style.right = '20px';
+  notification.style.backgroundColor = '#ff85a2';
+  notification.style.color = 'white';
+  notification.style.padding = '10px 15px';
+  notification.style.borderRadius = '8px';
+  notification.style.fontFamily = 'Quicksand, sans-serif';
+  notification.style.fontWeight = 'bold';
+  notification.style.zIndex = '9999';
+  notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+  notification.style.opacity = '0';
+  notification.style.transition = 'opacity 0.3s ease';
+  
+  document.body.appendChild(notification);
+  
+  // Fade in
+  setTimeout(() => {
+    notification.style.opacity = '1';
+  }, 10);
+  
+  // Fade out and remove after 2 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
+  }, 2000);
+}
+
 // Function to inject OpenAI answers
 async function injectOpenAIAnswers(modelOverride) {
   console.log('Injecting OpenAI answers...');
@@ -80,6 +145,9 @@ async function injectOpenAIAnswers(modelOverride) {
     answersContainer.style.padding = '10px';
     answersContainer.style.margin = '10px 0';
     answersContainer.style.fontFamily = 'inherit';
+    
+    // Reset visibility state when injecting new answers
+    answersVisible = true;
     
     // Add CSS for selection styling
     const style = document.createElement('style');
@@ -137,6 +205,7 @@ async function injectOpenAIAnswers(modelOverride) {
       const answerContent = document.createElement('div');
       answerContent.innerHTML = openaiHelper.markdownToHtml(answerData.answer);
       answerContent.style.lineHeight = '1.5';
+      answerContent.style.color = 'inherit'; // Start visible by default
       answerContainer.appendChild(answerContent);
     
       answersContainer.appendChild(answerContainer);
@@ -192,6 +261,22 @@ function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists, sele
   }
 }
 
+// Add keyboard event listener for toggling answer visibility
+document.addEventListener('keydown', (event) => {
+  // Check if the key pressed is 'c' or 'C'
+  if (event.key.toLowerCase() === 'c') {
+    // Only toggle if we're not in an input field
+    const activeElement = document.activeElement;
+    const isInputField = activeElement.tagName === 'INPUT' || 
+                         activeElement.tagName === 'TEXTAREA' || 
+                         activeElement.isContentEditable;
+    
+    if (!isInputField) {
+      toggleAnswersVisibility();
+    }
+  }
+});
+
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Message received in content script:', message);
@@ -230,6 +315,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     injectOpenAIAnswers(message.selectedModel)
       .then(() => sendResponse({ success: true }))
       .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  } else if (message.action === 'toggleAnswersVisibility') {
+    toggleAnswersVisibility();
+    sendResponse({ success: true, visible: answersVisible });
     return true;
   }
   

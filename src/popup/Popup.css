@@ -283,6 +283,29 @@ label {
   font-size: 1.2rem;
 }
 
+.keyboard-shortcut-info {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+.keyboard-shortcut-info kbd {
+  background-color: #f7f7f7;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+  color: #333;
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.85em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+  margin: 0 2px;
+}
+
 /* Status styles for the injected content */
 #inwosent-status {
   animation: fadeIn 0.5s ease-in-out;
@@ -291,4 +314,14 @@ label {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Notification animation */
+#inwosent-notification {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
