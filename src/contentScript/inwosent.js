@@ -149,9 +149,12 @@ async function injectOpenAIAnswers(modelOverride) {
     // Reset visibility state when injecting new answers
     answersVisible = true;
     
-    // Add CSS for selection styling
+    // Add CSS for styling
     const style = document.createElement('style');
     style.textContent = `
+      .inwosent-answer {
+        color: inherit !important;
+      }
       .inwosent-answer::selection {
         color: #333;
         background-color: rgba(0, 0, 0, 0.1);
@@ -166,7 +169,7 @@ async function injectOpenAIAnswers(modelOverride) {
       answerContainer.style.marginBottom = '10px';
       answerContainer.style.padding = '5px';
       answerContainer.style.backgroundColor = 'transparent';
-      answerContainer.style.color = 'transparent';
+      answerContainer.style.color = 'inherit';
       answerContainer.style.userSelect = 'all';
     
       // Get question text and number
