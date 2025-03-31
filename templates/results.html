@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Quiz Results{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <h2>Quiz Results: {{ quiz.title }}</h2>
+    
+    <div class="score-summary">
+        <h3>Score: {{ submission.score }} / {{ submission.total_points }}</h3>
+        <p>Percentage: {{ (submission.score / submission.total_points * 100) | round(1) }}%</p>
+    </div>
+    
+    <div class="question-results">
+        <h3>Question Breakdown</h3>
+        
+        {% for result in submission.results %}
+            {% set question = quiz.questions|selectattr('id', 'equalto', result.question_id)|first %}
+            <div class="question-result {% if result.is_correct %}correct{% else %}incorrect{% endif %}">
+                <h4>Question {{ loop.index }}: {{ result.is_correct|default(false) and 'Correct' or 'Incorrect' }}</h4>
+                <div class="question-text">{{ question.text|safe }}</div>
+                
+                <div class="answer-details">
+                    <p><strong>Your answer:</strong> {{ result.user_answer }}</p>
+                    <p><strong>Correct answer:</strong> {{ result.correct_answer }}</p>
+                    <p><strong>Points earned:</strong> {{ result.points }} / {{ question.points }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn">Back to Quizzes</a>
+    </div>
+</div>
+{% endblock %}

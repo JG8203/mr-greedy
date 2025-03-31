@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="quiz-container">
+    <h2>{{ quiz.title }}</h2>
+    <p>{{ quiz.description }}</p>
+    
+    <form id="quiz-form" data-quiz-id="{{ quiz.id }}">
+        <div id="questions">
+            {% for question in quiz.questions %}
+                <div class="display_question question {{ question.type }}_question" id="{{ question.id }}">
+                    <div class="header">
+                        <span class="name question_name">Question {{ loop.index }}</span>
+                        <span class="question_points_holder">
+                            <span class="points question_points">{{ question.points }}</span> pts
+                        </span>
+                    </div>
+                    
+                    <div class="text">
+                        <div class="question_text user_content enhanced">
+                            {{ question.text|safe }}
+                        </div>
+                        
+                        <div class="answers">
+                            {% if question.type == 'numerical' %}
+                                <div class="form-control numerical-question-holder">
+                                    <input type="text" name="{{ question.id }}" class="form-control__input question_input numerical_question_input" autocomplete="off" aria-label="Numerical answer" placeholder="Enter your answer...">
+                                    {% if question.answer_format == 'currency' %}
+                                        <small>Enter amount without $ or commas (e.g., 12500)</small>
+                                    {% endif %}
+                                </div>
+                            {% elif question.type == 'text' %}
+                                <div class="form-control text-question-holder">
+                                    <textarea name="{{ question.id }}" class="form-control__input question_input text_question_input" rows="10" placeholder="Enter your answer..."></textarea>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="submit-quiz">
+            <button type="submit" class="btn btn-primary">Submit Quiz</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const quizForm = document.getElementById('quiz-form');
+        
+        quizForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            const formData = new FormData(this);
+            const answers = {};
+            
+            for (const [key, value] of formData.entries()) {
+                answers[key] = value;
+            }
+            
+            // Submit the quiz
+            fetch('/api/submit_quiz', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    quiz_id: parseInt(quizId),
+                    answers: answers
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Quiz submitted successfully! Score: ${data.score}/${data.total}`);
+                    window.location.href = '/results/' + data.submission_id;
+                } else {
+                    alert('Error submitting quiz: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while submitting the quiz.');
+            });
+        });
+    });
+</script>
+{% endblock %}
