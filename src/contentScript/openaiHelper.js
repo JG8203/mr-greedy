@@ -4,34 +4,6 @@ class OpenAIHelper {
     this.apiKey = apiKey;
     this.modelId = modelId || 'google/gemini-2.0-flash-001';  // Default model if none specified
     console.log(`OpenAIHelper initialized with model: ${this.modelId}`);
-    this.loadMarked();
-  }
-  
-  // Load marked.js library dynamically
-  loadMarked() {
-    if (typeof marked === 'undefined') {
-      console.log('Loading marked.js library...');
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js';
-      script.onload = () => {
-        console.log('marked.js library loaded successfully');
-        // Configure marked options
-        if (typeof marked !== 'undefined') {
-          marked.setOptions({
-            gfm: true,
-            breaks: true,
-            sanitize: false,
-            smartLists: true,
-            smartypants: true,
-            xhtml: false
-          });
-        }
-      };
-      script.onerror = () => console.error('Failed to load marked.js library');
-      document.head.appendChild(script);
-    } else {
-      console.log('marked.js library already loaded');
-    }
   }
 
   async getAnswersForQuestions() {
@@ -306,22 +278,48 @@ Make sure to answer all questions in order.`;
     }
   }
 
-  // Convert markdown to HTML using marked.js
+  // Convert markdown to HTML using basic formatting
   markdownToHtml(markdown) {
     if (!markdown) return '';
     
-    // Check if marked is available
-    if (typeof marked === 'undefined') {
-      // Fallback to basic formatting if marked isn't loaded
-      console.warn('marked.js not available, using basic formatting');
-      return `<p>${markdown.replace(/\n/g, '<br>')}</p>`;
-    }
-    
-    // Convert markdown to HTML using marked
     try {
-      return marked.parse(markdown);
+      // Process headers
+      let html = markdown
+        // Headers (h1, h2, h3)
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        
+        // Bold
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.*?)__/g, '<strong>$1</strong>')
+        
+        // Italic
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/_(.*?)_/g, '<em>$1</em>')
+        
+        // Code blocks
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+        
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        
+        // Lists
+        .replace(/^\s*\d+\.\s+(.*$)/gim, '<li>$1</li>')
+        .replace(/^\s*[\-\*]\s+(.*$)/gim, '<li>$1</li>')
+        
+        // Paragraphs and line breaks
+        .replace(/\n\s*\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      
+      // Wrap in paragraph tags if not already
+      if (!html.startsWith('<h') && !html.startsWith('<p>')) {
+        html = '<p>' + html + '</p>';
+      }
+      
+      return html;
     } catch (error) {
-      console.error('Error parsing markdown with marked:', error);
+      console.error('Error parsing markdown:', error);
       return `<p>${markdown.replace(/\n/g, '<br>')}</p>`;
     }
   }
