@@ -49,12 +49,15 @@ class OpenAIHelper {
       
       // Try to extract question number from header or ID
       let questionNumber = '';
-      const questionHeaderEl = questionEl.querySelector('.question_header');
-      if (questionHeaderEl) {
-        const headerText = questionHeaderEl.textContent.trim();
-        const match = headerText.match(/Question\s+(\d+)/i);
-        if (match && match[1]) {
-          questionNumber = match[1];
+      const headerEl = questionEl.querySelector('.header');
+      if (headerEl) {
+        const nameEl = headerEl.querySelector('.question_name');
+        if (nameEl) {
+          const headerText = nameEl.textContent.trim();
+          const match = headerText.match(/Question\s+(\d+)/i);
+          if (match && match[1]) {
+            questionNumber = match[1];
+          }
         }
       }
       
@@ -68,15 +71,56 @@ class OpenAIHelper {
       
       // Extract answer options
       const options = [];
-      const answerLabels = questionEl.querySelectorAll('.answer_label');
-      answerLabels.forEach(label => {
-        options.push(label.textContent.trim());
-      });
+      
+      // Look for answer options in different possible structures
+      // 1. Try answer_html elements
+      const answerHtmlElements = questionEl.querySelectorAll('.answer_html');
+      if (answerHtmlElements && answerHtmlElements.length > 0) {
+        answerHtmlElements.forEach(element => {
+          const optionText = element.textContent.trim();
+          if (optionText) {
+            options.push(optionText);
+          }
+        });
+      }
+      
+      // 2. If no options found, try answer_label elements
+      if (options.length === 0) {
+        const answerLabels = questionEl.querySelectorAll('.answer_label');
+        answerLabels.forEach(label => {
+          options.push(label.textContent.trim());
+        });
+      }
+      
+      // 3. If still no options, try select_answer labels
+      if (options.length === 0) {
+        const selectAnswerLabels = questionEl.querySelectorAll('.select_answer label');
+        selectAnswerLabels.forEach(label => {
+          const optionText = label.textContent.trim();
+          if (optionText) {
+            options.push(optionText);
+          }
+        });
+      }
+      
+      // Determine question type
+      let questionType = 'unsupported';
+      if (questionEl.classList.contains('multiple_choice_question') || options.length > 0) {
+        questionType = 'multiple_choice';
+      } else if (questionEl.classList.contains('numerical_question')) {
+        questionType = 'numerical';
+      } else if (questionEl.classList.contains('short_answer_question') || 
+                questionEl.classList.contains('essay_question') ||
+                questionEl.querySelector('input[type="text"]')) {
+        questionType = 'text';
+      }
       
       questions.push({
         id,
         text,
         options,
+        isMultipleChoice: questionType === 'multiple_choice',
+        questionType,
         number: questionNumber || (questions.length + 1).toString()
       });
     });
