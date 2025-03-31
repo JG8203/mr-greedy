@@ -215,43 +215,8 @@ async function injectOpenAIAnswers(modelOverride) {
         color: #333;
         background-color: rgba(0, 0, 0, 0.1);
       }
-      
-      .inwosent-auto-answer-btn {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background-color: #ff85a2;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 10px 15px;
-        font-family: 'Quicksand', sans-serif;
-        font-weight: bold;
-        cursor: pointer;
-        z-index: 9999;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        transition: all 0.3s ease;
-      }
-      
-      .inwosent-auto-answer-btn:hover {
-        background-color: #ff6b8e;
-        transform: translateY(-2px);
-      }
     `;
     document.head.appendChild(style);
-    
-    // Add auto-answer button
-    const existingBtn = document.getElementById('inwosent-auto-answer-btn');
-    if (existingBtn) {
-      existingBtn.remove();
-    }
-    
-    const autoAnswerBtn = document.createElement('button');
-    autoAnswerBtn.id = 'inwosent-auto-answer-btn';
-    autoAnswerBtn.className = 'inwosent-auto-answer-btn';
-    autoAnswerBtn.textContent = 'Auto-Answer Quiz';
-    autoAnswerBtn.addEventListener('click', autoAnswerQuiz);
-    document.body.appendChild(autoAnswerBtn);
     
     // Add each answer
     for (const answerData of answers) {
@@ -356,19 +321,24 @@ function updateStatusDisplay(trackingDisabled, injectEnabled, apiKeyExists, sele
   }
 }
 
-// Add keyboard event listener for toggling answer visibility
+// Add keyboard event listener for toggling answer visibility and auto-answering
 document.addEventListener('keydown', (event) => {
-  // Check if the key pressed is 'c' or 'C'
-  if (event.key.toLowerCase() === 'c') {
-    // Only toggle if we're not in an input field
-    const activeElement = document.activeElement;
-    const isInputField = activeElement.tagName === 'INPUT' || 
-                         activeElement.tagName === 'TEXTAREA' || 
-                         activeElement.isContentEditable;
-    
-    if (!isInputField) {
-      toggleAnswersVisibility();
-    }
+  // Only proceed if we're not in an input field
+  const activeElement = document.activeElement;
+  const isInputField = activeElement.tagName === 'INPUT' || 
+                       activeElement.tagName === 'TEXTAREA' || 
+                       activeElement.isContentEditable;
+  
+  if (isInputField) return;
+  
+  // Toggle visibility with 'C' key
+  if (event.key.toLowerCase() === 'c' && !event.shiftKey) {
+    toggleAnswersVisibility();
+  }
+  
+  // Auto-answer with 'Shift+C'
+  if (event.key.toLowerCase() === 'c' && event.shiftKey) {
+    autoAnswerQuiz();
   }
 });
 

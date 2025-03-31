@@ -406,7 +406,8 @@ export const Popup = () => {
       </div>
       
       <div className="keyboard-shortcut-info">
-        Press <kbd>C</kbd> to toggle answer visibility
+        Press <kbd>C</kbd> to toggle answer visibility<br/>
+        Press <kbd>Shift</kbd> + <kbd>C</kbd> to auto-answer quiz
       </div>
     </main>
   )
