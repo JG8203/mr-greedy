@@ -114,6 +114,11 @@ function autoAnswerQuiz() {
         }
       }
       
+      // Remove any commas from the answer
+      if (answer) {
+        answer = answer.replace(/,/g, '');
+      }
+      
       // Determine question type
       if (questionEl.classList.contains('multiple_choice_question')) {
         // Handle multiple choice questions

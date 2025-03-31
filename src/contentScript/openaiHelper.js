@@ -174,9 +174,11 @@ ${questionsText}
 
 For each question:
 1. For multiple choice questions, identify the letter of the correct option (A, B, C, etc.)
-2. For numerical questions, provide the numerical answer
-3. For text/fill-in-the-blank questions, provide the text answer
+2. For numerical questions, provide the numerical answer WITHOUT any commas (e.g. 300000 not 300,000)
+3. For text/fill-in-the-blank questions, provide the text answer WITHOUT any commas
 4. For unsupported question types, provide only an explanation
+
+IMPORTANT: Do not use any commas in your answers. Remove all commas from numerical values and text answers.
 
 `;
 
@@ -423,9 +425,10 @@ For numerical or text questions, clearly state "Answer: [value]" at the beginnin
             role: 'system',
             content: `You are a helpful assistant that provides accurate answers to quiz questions. 
             For multiple choice questions, identify the correct option letter (A, B, C, D, etc.).
-            For numerical questions, provide the numerical answer.
-            For text/fill-in-the-blank questions, provide the text answer.
+            For numerical questions, provide the numerical answer without any commas (e.g. 300000 not 300,000).
+            For text/fill-in-the-blank questions, provide the text answer without any commas.
             For unsupported question types, leave the answer field empty but still provide an explanation.
+            IMPORTANT: Do not use any commas in your answers. Remove all commas from numerical values and text answers.
             Be thorough in your explanations. Make sure to answer all questions in the batch.`
           },
           {
