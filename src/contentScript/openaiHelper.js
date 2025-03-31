@@ -191,9 +191,16 @@ Each answer object must include:
 - questionType: the type of question ("multiple_choice", "numerical", "text", or "unsupported")
 `;
     } else {
-      promptText += `For each answer, start with "### Answer to Question X:" where X is the question number.
-Include the question ID in your response.
-For multiple choice questions, clearly state which option letter is correct.
+      // For non-Google models, provide clear instructions for text-based formatting
+      promptText += `For each answer, use this format:
+
+### Answer to Question X:
+Question ID: [question_id]
+${isGoogleModel ? '' : 'The correct answer is [letter/value].\n'}
+[Your detailed explanation here]
+
+For multiple choice questions, clearly state "The correct answer is [letter]." at the beginning of your explanation.
+For numerical or text questions, clearly state "Answer: [value]" at the beginning of your explanation.
 `;
     }
 
@@ -206,10 +213,12 @@ For multiple choice questions, clearly state which option letter is correct.
     console.log('Parsing batch response for', questionCount, 'questions');
     
     try {
-      // Check if the response is JSON
+      // Check if the response is from a Google model (JSON format)
+      // Only Google models reliably return proper JSON responses
+      const isGoogleModel = this.modelId && this.modelId.startsWith('google/');
       const isJsonResponse = response.trim().startsWith('{') && response.trim().endsWith('}');
       
-      if (isJsonResponse) {
+      if (isGoogleModel && isJsonResponse) {
         // Parse the JSON response
         const jsonResponse = JSON.parse(response);
         
@@ -246,8 +255,7 @@ For multiple choice questions, clearly state which option letter is correct.
         }
       }
       
-      // If we get here, either it's not JSON or the JSON doesn't have the expected structure
-      // Use the traditional parsing method
+      // For non-Google models or if JSON parsing fails, use the traditional parsing method
       console.log('Using traditional parsing method for response');
       
       // Extract answers using regex patterns
@@ -273,21 +281,33 @@ For multiple choice questions, clearly state which option letter is correct.
         
         // Try to extract question ID and answer from the text
         const questionIdMatch = processedAnswer.match(/Question ID: ([a-zA-Z0-9_]+)/);
-        const answerMatch = processedAnswer.match(/The correct answer is ([A-Z])/);
+        const answerMatch = processedAnswer.match(/The correct answer is ([A-Z])/i);
+        const numericalMatch = processedAnswer.match(/Answer: ([\d\.\-]+)/i);
         
-        if (questionIdMatch || answerMatch) {
-          const questionId = questionIdMatch ? questionIdMatch[1] : `question_${index + 1}`;
-          const answerLetter = answerMatch ? answerMatch[1] : '';
-          
-          // Add structured data as JSON for auto-answering
-          processedAnswer += `\n\n\`\`\`json
+        let questionType = 'unsupported';
+        let answerValue = '';
+        
+        if (answerMatch) {
+          questionType = 'multiple_choice';
+          answerValue = answerMatch[1].toUpperCase();
+        } else if (numericalMatch) {
+          questionType = 'numerical';
+          answerValue = numericalMatch[1];
+        }
+        
+        // Get question ID from text or use index
+        const questionId = questionIdMatch 
+          ? `question_${questionIdMatch[1]}` 
+          : `question_${index + 1}`;
+        
+        // Add structured data as JSON for auto-answering
+        processedAnswer += `\n\n\`\`\`json
 {
-  "questionId": "question_${questionId}",
-  "questionType": "${answerLetter ? 'multiple_choice' : 'unsupported'}",
-  "answer": "${answerLetter}"
+  "questionId": "${questionId}",
+  "questionType": "${questionType}",
+  "answer": "${answerValue}"
 }
 \`\`\``;
-        }
         
         return `${header}\n${processedAnswer}`;
       });
@@ -419,6 +439,7 @@ For multiple choice questions, clearly state which option letter is correct.
       };
       
       // Only add structured output for Google models
+      // Currently only Google models reliably support JSON schema output
       if (modelToUse.startsWith('google/')) {
         requestBody.response_format = {
           type: "json_schema",

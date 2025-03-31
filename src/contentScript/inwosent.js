@@ -95,13 +95,18 @@ function autoAnswerQuiz() {
         // Try to extract answer from text patterns
         const multipleChoiceMatch = answerData.answer.match(/correct answer is ([A-Z])/i);
         const numericalMatch = answerData.answer.match(/Answer: ([\d\.\-]+)/i);
+        const textMatch = answerData.answer.match(/Answer: "([^"]+)"/i) || 
+                          answerData.answer.match(/Answer: ([^\n\.]+)/i);
         
         if (multipleChoiceMatch) {
-          answer = multipleChoiceMatch[1];
+          answer = multipleChoiceMatch[1].toUpperCase();
           questionType = 'multiple_choice';
         } else if (numericalMatch) {
           answer = numericalMatch[1];
           questionType = 'numerical';
+        } else if (textMatch) {
+          answer = textMatch[1].trim();
+          questionType = 'text';
         } else {
           // Default to using the first line as the answer if nothing else works
           const firstLine = answerData.answer.split('\n')[0];
