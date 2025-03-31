@@ -235,6 +235,50 @@ export const Popup = () => {
       setStatusMessage('Error: ' + error.message)
     }
   }
+  
+  // Handle auto-answer button click
+  const handleAutoAnswer = async () => {
+    try {
+      setStatusMessage('Auto-answering quiz...')
+      
+      // Get current tab
+      const tabs = await new Promise<chrome.tabs.Tab[]>(resolve => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs))
+      })
+      
+      if (!tabs || !tabs[0] || !tabs[0].id) {
+        setStatusMessage('No active tab found')
+        return
+      }
+      
+      // Send message to content script
+      const response = await new Promise<ContentScriptResponse>((resolve, reject) => {
+        chrome.tabs.sendMessage(
+          tabs[0].id!, 
+          { action: 'autoAnswerQuiz' },
+          response => {
+            if (chrome.runtime.lastError) {
+              reject(new Error('Content script not ready. Please refresh the page and try again.'))
+            } else {
+              resolve(response as ContentScriptResponse)
+            }
+          }
+        )
+      })
+      
+      if (response && response.success) {
+        setStatusMessage('Quiz auto-answered! ✅')
+        setTimeout(() => {
+          setStatusMessage('')
+        }, 2000)
+      } else {
+        setStatusMessage('Error: ' + (response?.error || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Error auto-answering quiz:', error)
+      setStatusMessage('Error: ' + error.message)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -338,6 +382,14 @@ export const Popup = () => {
           disabled={!apiKey}
         >
           Get AI Answers <span className="emoji">🤖</span>
+        </button>
+        
+        <button 
+          className="kawaii-button kawaii-button-tertiary"
+          onClick={handleAutoAnswer}
+          disabled={!apiKey}
+        >
+          Auto-Answer Quiz <span className="emoji">✏️</span>
         </button>
         
         {statusMessage && (

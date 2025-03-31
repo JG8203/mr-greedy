@@ -200,6 +200,9 @@ Make sure to answer all questions in order.`;
       // Extract answers from the structured response
       const structuredAnswers = jsonResponse.answers;
       
+      // Store raw JSON for auto-answering
+      window.lastStructuredAnswers = structuredAnswers;
+      
       // Map to the format expected by the UI
       return structuredAnswers.map(answer => {
         const header = `### Answer to Question ${answer.questionNumber}:`;
@@ -211,6 +214,15 @@ Make sure to answer all questions in order.`;
         } else if ((answer.questionType === 'numerical' || answer.questionType === 'text') && answer.answer) {
           content = `Answer: ${answer.answer}\n\n${content}`;
         }
+        
+        // Add structured data as JSON for auto-answering
+        content += `\n\n\`\`\`json
+{
+  "questionId": "${answer.questionId}",
+  "questionType": "${answer.questionType}",
+  "answer": "${answer.answer}"
+}
+\`\`\``;
         
         return `${header}\n${content.trim()}`;
       });

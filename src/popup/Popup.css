@@ -227,6 +227,15 @@ label {
   background-color: #7450c0;
 }
 
+.kawaii-button-tertiary {
+  background-color: #4CAF50;
+  margin-top: 10px;
+}
+
+.kawaii-button-tertiary:hover {
+  background-color: #3d8b40;
+}
+
 .kawaii-button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;

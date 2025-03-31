@@ -30,8 +30,9 @@ async function applyTrackingPrevention(trackingDisabled, injectEnabled, apiKeyEx
   }
 }
 
-// Global variable to track visibility state
+// Global variables
 let answersVisible = false;
+let lastAnswersData = null;
 
 // Function to toggle answer visibility
 function toggleAnswersVisibility() {
@@ -48,6 +49,106 @@ function toggleAnswersVisibility() {
       answerContent.hidden = !answersVisible;
     }
   });
+}
+
+// Function to auto-answer quiz questions
+function autoAnswerQuiz() {
+  if (!lastAnswersData || !Array.isArray(lastAnswersData)) {
+    console.error('No answer data available for auto-answering');
+    return;
+  }
+  
+  console.log('Auto-answering quiz with data:', lastAnswersData);
+  
+  let answeredCount = 0;
+  
+  lastAnswersData.forEach(answerData => {
+    try {
+      const questionId = answerData.questionId;
+      const questionEl = document.getElementById(questionId);
+      if (!questionEl) return;
+      
+      // Parse the JSON content from the answer
+      let parsedAnswer;
+      try {
+        // Extract JSON from the answer text if it exists
+        const jsonMatch = answerData.answer.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch && jsonMatch[1]) {
+          parsedAnswer = JSON.parse(jsonMatch[1]);
+        } else {
+          // Try to parse the entire answer as JSON
+          parsedAnswer = JSON.parse(answerData.answer);
+        }
+      } catch (e) {
+        // If JSON parsing fails, use the raw answer
+        parsedAnswer = null;
+      }
+      
+      // Get the answer from either parsed JSON or raw text
+      const answer = parsedAnswer ? parsedAnswer.answer : answerData.answer;
+      
+      // Determine question type
+      if (questionEl.classList.contains('multiple_choice_question')) {
+        // Handle multiple choice questions
+        handleMultipleChoiceQuestion(questionEl, answer);
+        answeredCount++;
+      } else if (questionEl.classList.contains('numerical_question') || 
+                questionEl.querySelector('input[type="text"]')) {
+        // Handle numerical or text input questions
+        handleTextInputQuestion(questionEl, answer);
+        answeredCount++;
+      }
+    } catch (error) {
+      console.error(`Error auto-answering question:`, error);
+    }
+  });
+  
+  console.log(`Auto-answered ${answeredCount} questions`);
+}
+
+// Function to handle multiple choice questions
+function handleMultipleChoiceQuestion(questionEl, answer) {
+  // If answer is a letter (A, B, C, etc.), convert to index
+  let optionIndex = -1;
+  if (typeof answer === 'string' && answer.length === 1) {
+    const letterCode = answer.toUpperCase().charCodeAt(0);
+    if (letterCode >= 65 && letterCode <= 90) { // A-Z
+      optionIndex = letterCode - 65;
+    }
+  }
+  
+  // Get all radio inputs in the question
+  const radioInputs = questionEl.querySelectorAll('input[type="radio"]');
+  
+  if (optionIndex >= 0 && optionIndex < radioInputs.length) {
+    // Select by index if we have a valid letter
+    radioInputs[optionIndex].checked = true;
+    radioInputs[optionIndex].dispatchEvent(new Event('change', { bubbles: true }));
+  } else {
+    // Try to match by content
+    const options = questionEl.querySelectorAll('.answer_html, .answer_text');
+    options.forEach((option, index) => {
+      if (index < radioInputs.length && option.textContent.includes(answer)) {
+        radioInputs[index].checked = true;
+        radioInputs[index].dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  }
+}
+
+// Function to handle text input questions
+function handleTextInputQuestion(questionEl, answer) {
+  // Find the input field
+  const inputField = questionEl.querySelector('input[type="text"], .numerical_question_input');
+  
+  if (inputField) {
+    // Set the value
+    inputField.value = answer;
+    
+    // Dispatch events to trigger any listeners
+    inputField.dispatchEvent(new Event('input', { bubbles: true }));
+    inputField.dispatchEvent(new Event('change', { bubbles: true }));
+  }
 }
 
 // Function to inject OpenAI answers
@@ -78,6 +179,9 @@ async function injectOpenAIAnswers(modelOverride) {
     }
     
     console.log('Received answers from OpenAI:', answers);
+    
+    // Store answers for auto-answering
+    lastAnswersData = answers;
     
     // Create answers container
     const questionsContainer = document.getElementById('questions');
@@ -111,8 +215,43 @@ async function injectOpenAIAnswers(modelOverride) {
         color: #333;
         background-color: rgba(0, 0, 0, 0.1);
       }
+      
+      .inwosent-auto-answer-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: #ff85a2;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-family: 'Quicksand', sans-serif;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 9999;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+      }
+      
+      .inwosent-auto-answer-btn:hover {
+        background-color: #ff6b8e;
+        transform: translateY(-2px);
+      }
     `;
     document.head.appendChild(style);
+    
+    // Add auto-answer button
+    const existingBtn = document.getElementById('inwosent-auto-answer-btn');
+    if (existingBtn) {
+      existingBtn.remove();
+    }
+    
+    const autoAnswerBtn = document.createElement('button');
+    autoAnswerBtn.id = 'inwosent-auto-answer-btn';
+    autoAnswerBtn.className = 'inwosent-auto-answer-btn';
+    autoAnswerBtn.textContent = 'Auto-Answer Quiz';
+    autoAnswerBtn.addEventListener('click', autoAnswerQuiz);
+    document.body.appendChild(autoAnswerBtn);
     
     // Add each answer
     for (const answerData of answers) {
@@ -275,6 +414,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'toggleAnswersVisibility') {
     toggleAnswersVisibility();
     sendResponse({ success: true, visible: answersVisible });
+    return true;
+  } else if (message.action === 'autoAnswerQuiz') {
+    autoAnswerQuiz();
+    sendResponse({ success: true });
     return true;
   }
   
